@@ -1,5 +1,5 @@
 """
-This module handles the process of fetching data from an SQL Server database and generating 
+This module handles the process of fetching data from an SQL Server database and generating
 an manuel report on items that are to be handled manually.
 It uses pyodbc for database connectivity and jinja2 for templating the HTML report.
 """
