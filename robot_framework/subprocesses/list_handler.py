@@ -7,18 +7,19 @@ import pyodbc
 from jinja2 import Template
 
 
-class ManuelListHandler:
+class ListHandler:
     """
     A class to handle the retrieval and processing of 'Manuel' list items from a database,
     and generate an HTML report based on the retrieved data.
     """
-    def __init__(self, rpa_db_connection_string):
+    def __init__(self, rpa_db_connection_string, list_type):
         """
         Initialize the ManuelListHandler with a database connection string.
 
         :param rpa_db_connection_string: The connection string for connecting to the SQL Server database.
         """
         self.connection_string = rpa_db_connection_string
+        self.list_type = list_type
 
     def fetch_data(self, query):
         """
@@ -36,7 +37,7 @@ class ManuelListHandler:
         data = [dict(zip(columns, row)) for row in results]
         return data
 
-    def manuel_list_items(self):
+    def list_items(self):
         """
         Fetch all the items from the database that have the status 'Manuel' and the current date.
 
@@ -45,45 +46,60 @@ class ManuelListHandler:
 
         :return: A list of dictionaries containing the items for the 'Manuel' list.
         """
-        query = """
+        query = f"""
         SELECT	'Tandplejetilbud privat klinik 0-17 år' AS [Formular]
                 ,[reference]
                 ,FORMAT(CAST(JSON_VALUE(data, '$.entity.completed[0].value') AS DATETIMEOFFSET), 'dd-MM-yyyy') AS [Indsendt dato]
                 ,JSON_VALUE(data, '$.data.cpr_nummer') AS [CPR MitId]
-                ,JSON_VALUE(data, '$.data.cpr_nummr_barnet_manuelt') AS [CPR]
+                ,JSON_VALUE(data, '$.data.cpr_nummer_barn') AS [CPR Barn]
+                ,JSON_VALUE(data, '$.data.cpr_nummr_barnet_manuelt') AS [CPR Barn - Manuelt]
                 ,JSON_VALUE(data, '$.data.navn') AS [Navn]
                 ,JSON_VALUE(data, '$.data.tandklinik') AS [Tandklinik]
+                ,JSON_VALUE(data, '$.data.adresse') AS [Adresse]
                 ,JSON_VALUE(data, '$.data.jeg_er_indforstaaet_med_reglerne_for_frit_valg_og_herunder_regle') AS [Indforstået med reglerne for frit valg]
                 ,JSON_VALUE(data, '$.data.jeg_giver_tilladelse_til_at_tandplejen_aarhus_maa_sende_journal_') AS [Tilladelse til at sende journal]
                 ,JSON_VALUE(data, '$.data.jeg_har_laest_og_forstaaet_reglerne_og_oensker_at_mit_barn_0_15') AS [Har læst og forstået reglerne]
         FROM	[RPA].[rpa].[Hub_SolteqTand_tandplejetilbud_privat_klinik_0_17_aar]
-        WHERE	process_status = 'Manuel'
+        WHERE	process_status = '{self.list_type}'
+                AND FORMAT(CAST(creation_time AS DATETIME), 'dd-MM-yyyy') = FORMAT(CAST(GETDATE() AS DATETIME), 'dd-MM-yyyy')
         UNION ALL
         SELECT	'Tandplejetilbud privat klinik 18-21 år'
                 ,[reference]
                 ,FORMAT(CAST(JSON_VALUE(data, '$.entity.completed[0].value') AS DATETIMEOFFSET), 'dd-MM-yyyy') AS [Indsendt dato]
                 ,JSON_VALUE(data, '$.data.cpr_nummer') AS [CPR MitId]
-                ,JSON_VALUE(data, '$.data.cpr_nummr_barnet_manuelt') AS [CPR]
+                ,JSON_VALUE(data, '$.data.cpr_nummer_barn') AS [CPR Barn]
+                ,JSON_VALUE(data, '$.data.cpr_nummr_barnet_manuelt') AS [CPR Barn - Manuelt]
                 ,JSON_VALUE(data, '$.data.navn') AS [Navn]
                 ,JSON_VALUE(data, '$.data.tandklinik') AS [Tandklinik]
+                ,JSON_VALUE(data, '$.data.adresse') AS [Adresse]
                 ,JSON_VALUE(data, '$.data.jeg_er_indforstaaet_med_reglerne_for_frit_valg_og_herunder_regle') AS [Indforstået med reglerne for frit valg]
                 ,JSON_VALUE(data, '$.data.jeg_giver_tilladelse_til_at_tandplejen_aarhus_maa_sende_journal_') AS [Tilladelse til at sende journal]
                 ,JSON_VALUE(data, '$.data.jeg_har_laest_og_forstaaet_reglerne_og_oensker_at_mit_barn_0_15') AS [Har læst og forstået reglerne]
         FROM	[RPA].[rpa].[Hub_SolteqTand_tandplejetilbud_privat_klinik_18_21_aar]
-        WHERE	process_status = 'Manuel'
+        WHERE	process_status = '{self.list_type}'
+                AND FORMAT(CAST(creation_time AS DATETIME), 'dd-MM-yyyy') = FORMAT(CAST(GETDATE() AS DATETIME), 'dd-MM-yyyy')
         """
         return self.fetch_data(query)
 
     def generate_list(self):
         """
-        Generate an HTML report for all process data, including 'Manuel' status items.
+        Generate an HTML report for either 'Manuel' or 'Successful' status items.
 
         The report includes an HTML table of items retrieved from the database, formatted
-        as per the 'Manuel' list.
+        as per the specified list.
 
+        :param list_type: A string indicating the type of list to generate.
+                        "manuel" for manuel_list_items(), "successful" for successful_list_items().
         :return: A string representing the generated HTML content.
         """
-        manuel_list_items = self.manuel_list_items()
+        if self.list_type == "manuel":
+            list_items = self.list_items()
+            title = "Manuel List"
+        elif self.list_type == "successful":
+            list_items = self.list_items()
+            title = "Successful List"
+        else:
+            raise ValueError("Invalid list_type. Use 'manuel' or 'successful'.")
 
         html_template = """
         <html>
@@ -104,20 +120,21 @@ class ManuelListHandler:
         </style>
         </head>
         <body>
-            <h3>Manuel liste</h3>
-            {{ manuel_list_items_table | safe }}
+            <h3>{{ title }}</h3>
+            {{ list_items_table | safe }}
         </body>
         </html>
         """
 
-        manuel_list_items_table = self.convert_to_html_table(manuel_list_items)
+        list_items_table = self.convert_to_html_table(list_items)
 
         template = Template(html_template)
         html_content = template.render(
-            manuel_list_items_table=manuel_list_items_table,
+            title=title,
+            list_items_table=list_items_table,
         )
 
-        return html_content
+        return html_content, title
 
     def convert_to_html_table(self, data):
         """
