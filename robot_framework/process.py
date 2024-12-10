@@ -16,7 +16,7 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
 
     try:
         orchestrator_connection.log_trace("Generating the report.")
-        list_report = ListHandler(rpa_db_connection)        
+        list_report = ListHandler(rpa_db_connection)
 
         html_content = list_report.generate_list()
         orchestrator_connection.log_trace("Sending e-mail.")
