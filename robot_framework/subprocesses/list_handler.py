@@ -4,6 +4,7 @@ an manuel report on items that are to be handled manually.
 It uses pyodbc for database connectivity and jinja2 for templating the HTML report.
 """
 import pyodbc
+from datetime import datetime
 from jinja2 import Template
 
 
@@ -36,37 +37,13 @@ class ListHandler:
         data = [dict(zip(columns, row)) for row in results]
         return data
 
-    def list_items_ok(self):
+    def list_items(self, status: str):
         """
-        Fetch all the items from the database that have the status 'Successful' and the current date.
+        Fetch all the items from the database that have the relevent status and the current date.
 
-        :return: A list of dictionaries containing the items for the 'Successful' list.
+        :return: A list of dictionaries containing the items for the 'Manuel' or 'Successful' list.
         """
-        query = """
-            SELECT top 5 [Formular]
-                ,[reference]
-                ,[Status]
-                ,[Indsendt dato]
-                ,[CPR MitId]
-                ,[CPR Barn]
-                ,[Navn]
-                ,[Tandlæge/Tandklinik]
-                ,[Adresse]
-                ,[Samlet accept]
-                ,[Tilladelse til at sende journal]
-            FROM [RPA].[rpa].[SolteqTand_tandplejetilbud_privat_klinik]
-            WHERE Status = 'Successful'
-            ORDER BY Formular ASC
-        """
-        return self.fetch_data(query)
-
-    def list_items_manuel(self):
-        """
-        Fetch all the items from the database that have the status 'Manuel' and the current date.
-
-        :return: A list of dictionaries containing the items for the 'Manuel' list.
-        """
-        query = """
+        query = f"""
             SELECT [Formular]
                 ,[reference]
                 ,[Status]
@@ -79,7 +56,8 @@ class ListHandler:
                 ,[Samlet accept]
                 ,[Tilladelse til at sende journal]
             FROM [RPA].[rpa].[SolteqTand_tandplejetilbud_privat_klinik]
-            WHERE Status = 'Manuel'
+            WHERE Status = '{status}'
+            AND FORMAT(CAST(creation_time AS DATETIME), 'dd-MM-yyyy') = FORMAT(CAST(GETDATE() AS DATETIME), 'dd-MM-yyyy')
             ORDER BY Formular ASC
         """
         return self.fetch_data(query)
@@ -123,8 +101,8 @@ class ListHandler:
         </html>
         """
 
-        list_items_manuel = self.list_items_manuel()
-        list_items_ok = self.list_items_ok()
+        list_items_manuel = self.list_items('Manuel')
+        list_items_ok = self.list_items('Successful')
         list_items_table_manuel = self.convert_to_html_table(list_items_manuel)
         list_items_table_ok = self.convert_to_html_table(list_items_ok)
 
