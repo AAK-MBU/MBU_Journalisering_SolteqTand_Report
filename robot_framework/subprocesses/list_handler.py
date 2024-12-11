@@ -4,7 +4,6 @@ an manuel report on items that are to be handled manually.
 It uses pyodbc for database connectivity and jinja2 for templating the HTML report.
 """
 import pyodbc
-from datetime import datetime
 from jinja2 import Template
 
 
