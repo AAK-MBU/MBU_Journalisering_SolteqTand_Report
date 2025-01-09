@@ -20,46 +20,59 @@ class ListHandler:
         """
         self.connection_string = rpa_db_connection_string
 
-    def fetch_data(self, query):
+    def fetch_data(self, query: str, params: tuple = ()):
         """
-        Fetch data from the SQL database using the provided SQL query.
+        Fetch data from the SQL database using the provided SQL query and parameters.
 
         :param query: The SQL query to execute for fetching data.
+        :param params: A tuple of parameters to pass to the SQL query.
         :return: A list of dictionaries where each dictionary represents a row of data.
         """
-        conn = pyodbc.connect(self.connection_string)
-        cursor = conn.cursor()
-        cursor.execute(query)
-        columns = [column[0] for column in cursor.description]
-        results = cursor.fetchall()
-        conn.close()
-        data = [dict(zip(columns, row)) for row in results]
-        return data
+        try:
+            conn = pyodbc.connect(self.connection_string)
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            columns = [column[0] for column in cursor.description]
+            results = cursor.fetchall()
+            data = [dict(zip(columns, row)) for row in results]
+            return data
+        except pyodbc.Error as e:
+            print("Database error:", e)
+            return []
+        finally:
+            conn.close()
 
     def list_items(self, status: str):
         """
-        Fetch all the items from the database that have the relevent status and the current date.
+        Fetch all the items from the database that have the relevant status and the current date.
 
-        :return: A list of dictionaries containing the items for the 'Manuel' or 'Successful' list.
+        :param status: The status to filter items by ('Manuel' or 'Successful').
+        :return: A list of dictionaries containing the filtered items.
         """
-        query = f"""
-            SELECT [Formular]
-                ,[reference]
-                ,[Status]
-                ,[Indsendt dato]
-                ,[CPR MitId]
-                ,[CPR Barn]
-                ,[Navn]
-                ,[Tandlæge/Tandklinik]
-                ,[Adresse]
-                ,[Samlet accept]
-                ,[Tilladelse til at sende journal]
-            FROM [RPA].[rpa].[SolteqTand_tandplejetilbud_privat_klinik]
-            WHERE Status = '{status}'
-            AND FORMAT(CAST(creation_time AS DATETIME), 'dd-MM-yyyy') = FORMAT(CAST(GETDATE() AS DATETIME), 'dd-MM-yyyy')
-            ORDER BY Formular ASC
+        query = """
+            SELECT
+                [description],
+                [form_id],
+                [Status],
+                FORMAT([Indsendt dato], 'dd-MM-yyyy') AS [Indsendelsesdato],
+                [CPR MitId],
+                [CPR Barn],
+                [Navn],
+                [Tandlæge/Tandklinik],
+                [Adresse],
+                [Samlet accept],
+                [Tilladelse til at sende journal],
+                [last_time_modified]
+            FROM
+                [RPA].[journalizing].[view_Tandplejen_SolteqTand]
+            WHERE
+                Status = ?
+                AND FORMAT(CAST([Indsendt dato] AS DATETIME), 'dd-MM-yyyy') = FORMAT(CAST(GETDATE() AS DATETIME), 'dd-MM-yyyy')
+            ORDER BY
+                [Indsendt dato] DESC
         """
-        return self.fetch_data(query)
+        parameters = (status,)
+        return self.fetch_data(query, parameters)
 
     def generate_list(self):
         """
