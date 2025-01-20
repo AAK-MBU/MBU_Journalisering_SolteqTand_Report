@@ -54,22 +54,22 @@ class ListHandler:
                 [description],
                 [form_id],
                 [Status],
-                FORMAT([Indsendt dato], 'dd-MM-yyyy') AS [Indsendelsesdato],
+                CAST([Indsendt dato] AS DATETIME) AS [Indsendt dato],
                 [CPR MitId],
                 [CPR Barn],
                 [Navn],
-                [Tandlæge/Tandklinik],
+                [Klinik],
                 [Adresse],
-                [Samlet accept],
-                [Tilladelse til at sende journal],
-                [last_time_modified]
+                [Samletaccept],
+                [Journalaccept],
+                CAST([last_time_modified] AS DATETIME) AS [last_time_modified]
             FROM
                 [RPA].[journalizing].[view_Tandplejen_SolteqTand]
             WHERE
                 Status = ?
                 AND FORMAT(CAST([Indsendt dato] AS DATETIME), 'dd-MM-yyyy') = FORMAT(CAST(GETDATE() AS DATETIME), 'dd-MM-yyyy')
             ORDER BY
-                [Indsendt dato] DESC
+                CAST([Indsendt dato] AS DATETIME) DESC
         """
         parameters = (status,)
         return self.fetch_data(query, parameters)
